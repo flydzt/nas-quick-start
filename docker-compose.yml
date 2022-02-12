@@ -1,0 +1,259 @@
+version: '3'
+
+services:
+  db:
+    image: mariadb:10.5
+    container_name: db
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+    privileged: true
+    restart: always
+    volumes:
+      - /root/nas/db:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=sinfonia
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: always
+    privileged: true
+    volumes:
+      - /root/nas/redis/data:/data
+
+  aria2:
+    image: superng6/aria2:webui-latest
+    container_name: aria2
+    privileged: true
+    environment:
+      - TZ=Asia/Shanghai
+      - SECRET=sinfonia
+      - CACHE=512M
+      - PORT=6800
+      - WEBUI=true
+      - WEBUI_PORT=8081
+      - BTPORT=32516
+      - UT=true
+      - QUIET=true
+      - SMD=true
+    volumes:
+      - /root/nas/aria2/config:/config
+      - /root/nas/downloads:/downloads
+    ports:
+      - 6800:6800
+      - 8081:8081
+    restart: always
+
+  emby:
+    image: emby/embyserver
+    container_name: embyserver
+    #runtime: nvidia # Expose NVIDIA GPUs
+    network_mode: host # Enable DLNA and Wake-on-Lan
+    #environment:
+            #- UID=1000 # The UID to run emby as (default: 2)
+            #- GID=100 # The GID to run emby as (default 2)
+            #- GIDLIST=100 # A comma-separated list of additional GIDs to run emby as (default: 2)
+    volumes:
+      - /root/nas/emby/config:/config # Configuration directory
+      - /root/nas/data/media/movies:/mnt/movies # Media directory
+      - /root/nas/data/media/tvshows:/mnt/tvshows # Media directory
+      - /root/nas/data/media/music:/mnt/music # Media directory
+    ports:
+      - 8096:8096 # HTTP port
+      - 8920:8920 # HTTPS port
+        #devices:
+        #- /dev/dri:/dev/dri # VAAPI/NVDEC/NVENC render nodes
+        #- /dev/vchiq:/dev/vchiq # MMAL/OMX on Raspberry Pi
+    devices:
+      - /dev/dri:/dev/dri
+    restart: always
+
+  nextcloud:
+    image: nextcloud:latest
+    container_name: nextcloud
+    restart: always
+    privileged: true
+    ports:
+      - 8000:80
+    volumes:
+      - /root/nas/nextcloud:/var/www/html
+    environment:
+      - MYSQL_HOST=db
+      - REDIS_HOST=redis
+    depends_on:
+      - db
+      - redis
+
+  heimdall:
+    image: linuxserver/heimdall
+    container_name: heimdall
+    privileged: true
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - /root/nas/heimdall/config:/config
+    ports:
+      - 8001:80
+      - 4431:443
+    restart: always
+
+  homeassistant:
+    image: linuxserver/homeassistant
+    container_name: homeassistant
+    network_mode: host
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Asia/Shanghai
+    volumes:
+      - /root/nas/homeassistant:/config
+    ports:
+      - 8123:8123 #optional
+        #devices:
+        #- /path/to/device:/path/to/device
+    restart: always
+
+  filebrowser:
+    image: filebrowser/filebrowser
+    container_name: filebrowser
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Asia/Shanghai
+    volumes:
+      - /root/nas/filebrowser/filebrowser.db:/database.db
+      - /root/nas:/srv
+    ports:
+      - 8002:80
+    restart: always
+
+  prowlarr:
+    image: linuxserver/prowlarr:develop
+    container_name: prowlarr
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Asia/Shanghai
+    volumes:
+      - /root/nas/prowlarr:/config
+    ports:
+      - 9696:9696
+    restart: always
+
+  sonarr:
+    image: linuxserver/sonarr
+    container_name: sonarr
+    privileged: true
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Asia/Shanghai
+    volumes:
+      - /root/nas/sonarr/config:/config
+      - /root/nas/data/media/tvshows:/tvshows #optional
+      - /root/nas/data/media/downloads:/downloads #optional
+    ports:
+      - 8989:8989
+    restart: always
+
+  qbittorrent:
+    image: linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    network_mode: "host"
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Asia/Shanghai
+    volumes:
+      - /root/nas/qbittorent/config:/config
+      - /root/nas/data/media/downloads:/downloads
+    restart: always   
+    
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    privileged: true
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Asia/Shanghai
+    volumes:
+      - /root/nas/radarr:/config
+      - /root/nas/data/media/movies:/movies #optional
+      - /root/nas/data/media/downloads:/downloads #optional
+    ports:
+      - 7878:7878
+    restart: always
+
+  lidarr:
+    image: linuxserver/lidarr
+    container_name: lidarr
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Asia/Shanghai
+    volumes:
+      - /root/nas/lidarr/config:/config
+      - /root/nas/data/media/music:/music #optional
+      - /root/nas/data/media/downloads:/downloads #optional
+    ports:
+      - 8686:8686
+    restart: always
+
+  readarr:
+    image: linuxserver/readarr:1.0.1083
+    container_name: readarr
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Asia/Shanghai
+    volumes:
+      - /root/nas/readarr/config:/config
+      - /root/nas/data/media/books:/books #optional
+      - /root/nas/data/media/downloads:/downloads #optional
+    ports:
+      - 8787:8787
+    restart: always
+
+  bazarr:
+    image: linuxserver/bazarr
+    container_name: bazarr
+    environment:
+      - PUID=0
+      - PGID=0
+      - TZ=Asia/Shanghai
+    volumes:
+      - /root/nas/bazarr/config:/config
+      - /root/nas/data/media/movies:/movies #optional
+      - /root/nas/data/media/tvshows:/tvshows #optional
+    ports:
+      - 6767:6767
+    restart: always
+ 
+  zerotier:
+    image: seedgou/zerotier
+    container_name: "zerotier"
+    network_mode: "host"
+    volumes:
+      - /root/nas/zerotier-one:/var/lib/zerotier-one
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    devices:
+      - "/dev/net/tun:/dev/net/tun"
+    restart: always
+
+  transmission:
+    image: linuxserver/transmission
+    container_name: transmission
+    network_mode: host
+    environment:
+      - PUID=0
+      - PGID=0
+      - TRANSMISSION_WEB_HOME=/combustion-release/ #optional
+      - USER=fly #optional
+      - PASS=sinfonia #optional
+    volumes:
+      - /root/nas/transmission/config:/config
+      - /root/nas/data/media/downloads:/downloads
+      - /root/nas/data/media/watch:/watch
+    restart: unless-stopped
